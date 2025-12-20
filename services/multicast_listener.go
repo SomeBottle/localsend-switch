@@ -36,7 +36,6 @@ func ListenLocalSendMulticast(networkType string, multicastAddr string, multicas
 					fmt.Printf("Error creating UDP4 packet connection: %v\n", err)
 					return false, err
 				}
-				defer pc4.Close()
 				p4 := ipv4.NewPacketConn(pc4)
 				// 加入组播组
 				if err := p4.JoinGroup(outboundInterface, &net.UDPAddr{IP: net.ParseIP(multicastAddr)}); err != nil {
@@ -53,7 +52,6 @@ func ListenLocalSendMulticast(networkType string, multicastAddr string, multicas
 					fmt.Printf("Error creating UDP6 packet connection: %v\n", err)
 					return false, err
 				}
-				defer pc6.Close()
 				p6 := ipv6.NewPacketConn(pc6)
 				// 加入组播组
 				if err := p6.JoinGroup(outboundInterface, &net.UDPAddr{IP: net.ParseIP(multicastAddr)}); err != nil {
@@ -65,6 +63,7 @@ func ListenLocalSendMulticast(networkType string, multicastAddr string, multicas
 					IPv6Conn: p6,
 				}
 			}
+			defer packetConn.Close()
 			fmt.Printf("Joined Multicast Group: %s:%s\n", multicastAddr, multicastPort)
 			for {
 				select {
