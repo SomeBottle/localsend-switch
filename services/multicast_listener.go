@@ -69,10 +69,19 @@ func ListenLocalSendMulticast(networkType string, multicastAddr string, multicas
 					// 接到退出信号
 					return true, nil
 				default:
+					// 设置超时时间防止阻塞过久
+					if err := packetConn.SetReadDeadline(time.Now().Add(constants.MulticastReadTimeout * time.Second)); err != nil {
+						return false, fmt.Errorf("Error setting read deadline: %w", err)
+					}
 					// 读取数据
-					buf := make([]byte, constants.ReadBufferSize)
+					buf := make([]byte, constants.MulticastReadBufferSize)
+					// UDP 中一次会读取整个数据报，直接 ReadFrom 即可
 					n, remoteAddr, err := packetConn.ReadFrom(buf)
 					if err != nil {
+						if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+							// 读取超时罢了，继续等待
+							continue
+						}
 						return false, err
 					}
 					clientIP := remoteAddr.(*net.UDPAddr).IP

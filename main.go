@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/somebottle/localsend-switch/constants"
 	"github.com/somebottle/localsend-switch/entities"
@@ -23,10 +24,12 @@ func main() {
 	multicastPort := os.Getenv("LOCALSEND_MULTICAST_PORT")
 	peerAddr := os.Getenv("LOCALSEND_SWITCH_PEER_ADDR")
 	peerPort := os.Getenv("LOCALSEND_SWITCH_PEER_PORT")
+	servPort := os.Getenv("LOCALSEND_SWITCH_SERV_PORT")
 
 	// 尝试从命令行读取配置
-	flag.StringVar(&peerAddr, "peer-addr", peerAddr, "Peer address")
-	flag.StringVar(&peerPort, "peer-port", peerPort, "Peer port")
+	flag.StringVar(&peerAddr, "peer-addr", peerAddr, "Peer address")                                      // 另一个 switch 节点的地址
+	flag.StringVar(&peerPort, "peer-port", peerPort, "Peer port (same as service port if not specified)") // 另一个 switch 节点的端口
+	flag.StringVar(&servPort, "serv-port", servPort, "Service port (same as peer port if not specified)") // 本地 TCP 服务监听端口
 	flag.StringVar(&multicastAddr, "ls-addr", multicastAddr, "Multicast address")
 	flag.StringVar(&multicastPort, "ls-port", multicastPort, "Multicast port")
 
@@ -41,6 +44,19 @@ func main() {
 	if multicastPort == "" {
 		multicastPort = constants.LocalSendDefaultMulticastPort
 		fmt.Println("Multicast port not provided, using default value: ", multicastPort)
+	}
+
+	if peerPort == "" {
+		peerPort = servPort
+	}
+
+	if servPort == "" {
+		servPort = peerPort
+	}
+
+	if peerPort == "" && servPort == "" {
+		// 没有配置任何端口，只有组播监听服务会启动
+		fmt.Println("Warning: Both peer port and service port are not provided, only multicast listener will be set up.")
 	}
 
 	// 检查是否为 IPv6 地址
@@ -79,7 +95,7 @@ func main() {
 
 	// 数据传输通道
 	udpPacketChan := make(chan entities.UDPPacketData)
-	// 出现异常时的通知通道
+	// 出现重要异常时的通知通道
 	errChan := make(chan error)
 	// ------------ 加入组播组，接收 LocalSend 的发现 UDP 包
 	// 相关协议文档: https://github.com/localsend/protocol
@@ -92,6 +108,8 @@ func main() {
 			panic(fmt.Sprintf("Exited with error: %v\n", err))
 		case <-sigCtx.Done():
 			fmt.Println("Shutting down gracefully...")
+			// 等待一会儿以确保所有 goroutine 都能退出
+			time.Sleep(5 * time.Second)
 			return
 		case udpPacket := <-udpPacketChan:
 			fmt.Printf("Received UDP packet from %s:%d - Data: %s\n", udpPacket.SourceIP.String(), udpPacket.SourcePort, string(udpPacket.Data))

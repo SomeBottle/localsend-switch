@@ -1,0 +1,20 @@
+// 交换时会用到的一些数据结构
+
+syntax = "proto3";
+package switchdata;
+
+option go_package = "switchdata/v1;switchdata";
+
+// 交换的 LocalSend 客户端信息
+// 参考: https://github.com/localsend/protocol?tab=readme-ov-file#31-multicast-udp-default
+message ClientInfo {
+    string switch_id = 1; // 本交换信息的 ID
+    string alias = 2;          // 客户端别名
+    string version = 3;        // 客户端版本
+    string device_model = 4;  // 设备型号
+    string device_type = 5;   // 设备类型
+    string fingerprint = 6;   // 客户端指纹
+    int32 port = 7;            // 监听端口
+    string protocol = 8;     // 协议
+    bool download = 9;        // 是否支持下载
+}
