@@ -109,7 +109,7 @@ func main() {
 		case <-sigCtx.Done():
 			fmt.Println("Shutting down gracefully...")
 			// 等待一会儿以确保所有 goroutine 都能退出
-			time.Sleep(5 * time.Second)
+			time.Sleep(2 * time.Second)
 			return
 		case udpPacket := <-udpPacketChan:
 			fmt.Printf("Received UDP packet from %s:%d - Data: %s\n", udpPacket.SourceIP.String(), udpPacket.SourcePort, string(udpPacket.Data))

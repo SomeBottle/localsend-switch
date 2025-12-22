@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/somebottle/localsend-switch/constants"
@@ -61,39 +62,58 @@ func ListenLocalSendMulticast(networkType string, multicastAddr string, multicas
 					IPv6Conn: p6,
 				}
 			}
-			defer packetConn.Close()
-			fmt.Printf("Joined Multicast Group: %s:%s\n", multicastAddr, multicastPort)
-			for {
+			// 通知协程停止的通道
+			listenerDone := make(chan struct{})
+			var closeFlag atomic.Bool
+			// ------------ 资源释放
+			defer func() {
+				close(listenerDone)
+				packetConn.Close()
+			}()
+			// ------------ 创建协程来监听中断信号
+			go func() {
 				select {
 				case <-sigCtx.Done():
-					// 接到退出信号
-					return true, nil
-				default:
-					// 设置超时时间防止阻塞过久
-					if err := packetConn.SetReadDeadline(time.Now().Add(constants.MulticastReadTimeout * time.Second)); err != nil {
-						return false, fmt.Errorf("Error setting read deadline: %w", err)
-					}
-					// 读取数据
-					buf := make([]byte, constants.MulticastReadBufferSize)
-					// UDP 中一次会读取整个数据报，直接 ReadFrom 即可
-					n, remoteAddr, err := packetConn.ReadFrom(buf)
-					if err != nil {
-						if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
-							// 读取超时罢了，继续等待
-							continue
-						}
-						return false, err
-					}
-					clientIP := remoteAddr.(*net.UDPAddr).IP
-					clientPort := remoteAddr.(*net.UDPAddr).Port
-					// 发送数据到通道
-					data := entities.UDPPacketData{
-						SourceIP:   clientIP,
-						SourcePort: clientPort,
-						Data:       buf[:n],
-					}
-					chanMsg <- data
+					// 接到退出信号，关闭连接，终止服务
+					closeFlag.Store(true)
+					packetConn.Close()
+				case <-listenerDone:
+					// 退出协程
+					return
 				}
+			}()
+			fmt.Printf("Joined Multicast Group: %s:%s\n", multicastAddr, multicastPort)
+			for {
+				// 设置超时时间防止阻塞过久
+				if err := packetConn.SetReadDeadline(time.Now().Add(constants.MulticastReadTimeout * time.Second)); err != nil {
+					return false, fmt.Errorf("Error setting read deadline: %w", err)
+				}
+				// 读取数据
+				buf := make([]byte, constants.MulticastReadBufferSize)
+				// UDP 中一次会读取整个数据报，直接 ReadFrom 即可
+				n, remoteAddr, err := packetConn.ReadFrom(buf)
+				if err != nil {
+					if nerr, ok := err.(net.Error); ok && nerr.Timeout() {
+						// 读取超时罢了，继续等待
+						continue
+					}
+					// 如果是关闭标志被设置，则退出
+					if closeFlag.Load() {
+						fmt.Printf("Multicast listener exiting gracefully...\n")
+						return true, nil
+					}
+					// 否则重启服务
+					return false, err
+				}
+				clientIP := remoteAddr.(*net.UDPAddr).IP
+				clientPort := remoteAddr.(*net.UDPAddr).Port
+				// 发送数据到通道
+				data := entities.UDPPacketData{
+					SourceIP:   clientIP,
+					SourcePort: clientPort,
+					Data:       buf[:n],
+				}
+				chanMsg <- data
 			}
 		}()
 		if exit {
