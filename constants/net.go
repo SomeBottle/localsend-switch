@@ -24,4 +24,6 @@ const (
 	TCPSocketReadBufferSize = 1024 * 1024 // 1 MiB
 	// 接收交换数据的缓冲区大小 (通道)
 	SwitchDataReceiveChanSize = 128
+	// 发现信息最大跳数
+	MaxDiscoveryMessageTTL = 255
 )

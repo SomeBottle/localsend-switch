@@ -93,13 +93,16 @@ func main() {
 		network = "udp4"
 	}
 
-	// 数据传输通道
-	udpPacketChan := make(chan entities.UDPPacketData)
-	// 出现重要异常时的通知通道
-	errChan := make(chan error)
+	// ------------ 为节点生成一个唯一标识符
+	nodeId := utils.GenerateRandomSwitchID()
+	fmt.Printf("Switch Node ID: %s\n", nodeId)
 	// ------------ 加入组播组，接收 LocalSend 的发现 UDP 包
 	// 相关协议文档: https://github.com/localsend/protocol
-	go services.ListenLocalSendMulticast(network, multicastAddr, multicastPort, outBoundInterface, sigCtx, udpPacketChan, errChan)
+	// 本地组播数据转交通道
+	multicastChan := make(chan *entities.SwitchMessage)
+	// 出现严重异常时的通知通道
+	errChan := make(chan error)
+	go services.ListenLocalSendMulticast(selfIp, nodeId, network, multicastAddr, multicastPort, outBoundInterface, sigCtx, multicastChan, errChan)
 
 	// 测试接收数据
 	for {
@@ -111,8 +114,8 @@ func main() {
 			// 等待一会儿以确保所有 goroutine 都能退出
 			time.Sleep(2 * time.Second)
 			return
-		case udpPacket := <-udpPacketChan:
-			fmt.Printf("Received UDP packet from %s:%d - Data: %s\n", udpPacket.SourceIP.String(), udpPacket.SourcePort, string(udpPacket.Data))
+		case packet := <-multicastChan:
+			fmt.Printf("Received UDP packet from %s - Data: %s\n", packet.SourceAddr, packet.Payload)
 		}
 	}
 

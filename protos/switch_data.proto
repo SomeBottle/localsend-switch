@@ -7,14 +7,17 @@ option go_package = "switchdata/v1;switchdata";
 
 // 交换的 LocalSend 客户端信息
 // 参考: https://github.com/localsend/protocol?tab=readme-ov-file#31-multicast-udp-default
-message ClientInfo {
-    string switch_id = 1; // 本交换信息的 ID
-    string alias = 2;          // 客户端别名
-    string version = 3;        // 客户端版本
-    string device_model = 4;  // 设备型号
-    string device_type = 5;   // 设备类型
-    string fingerprint = 6;   // 客户端指纹
-    int32 port = 7;            // 监听端口
-    string protocol = 8;     // 协议
-    bool download = 9;        // 是否支持下载
+message DiscoveryMessage {
+    string switch_id = 1; // switch 客户端唯一标识符
+    uint64 discovery_seq = 2;   // 发现包序列号
+    uint32 discovery_ttl = 3;   // 发现包存活时间（跳数）
+    // 以下为原发现信息
+    string alias = 4;          // 客户端别名
+    string version = 5;        // 客户端版本
+    string device_model = 6;  // 设备型号
+    string device_type = 7;   // 设备类型
+    string fingerprint = 8;   // 客户端指纹
+    int32 port = 9;            // 监听端口
+    string protocol = 10;     // 协议
+    bool download = 11;        // 是否支持下载
 }

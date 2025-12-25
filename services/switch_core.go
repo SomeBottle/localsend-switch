@@ -17,19 +17,20 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// handleTCPConnection 处理单个 TCP 连接
+// handleTCPConnection 处理并维护单个 TCP 连接
 //
 // conn: TCP 连接
 // dataChan: 传递接收到的交换数据的通道
-// connectionVolume: 控制最大连接数的通道
+// tcpConnHub: 维护 TCP 连接的管理器
 // sigCtx: 中断信号上下文，用于优雅关闭连接
-func handleTCPConnection(conn *net.TCPConn, dataChan chan<- *entities.SwitchMessage, connectionVolume chan struct{}, sigCtx context.Context) {
+func handleTCPConnection(conn *net.TCPConn, dataChan chan<- *entities.SwitchMessage, tcpConnHub *TCPConnectionHub, sigCtx context.Context) {
 	// 用来向中断信号监听协程发送退出信号的管道
 	handlerDone := make(chan struct{})
 	// 本处理协程终止后的清理
 	defer func() {
 		close(handlerDone)
-		<-connectionVolume
+		// 从连接管理器中移除连接
+		tcpConnHub.RemoveConnection(conn)
 		conn.Close()
 	}()
 	// 监听中断信号
@@ -54,7 +55,7 @@ func handleTCPConnection(conn *net.TCPConn, dataChan chan<- *entities.SwitchMess
 
 		// 1 字节的数据类型
 		//
-		// 0x01 - ClientInfo 数据
+		// 0x01 - DiscoveryMessage 数据
 		// 0x02 - 心跳包
 		var dataType byte
 		if err := binary.Read(conn, binary.BigEndian, &dataType); err != nil {
@@ -66,7 +67,7 @@ func handleTCPConnection(conn *net.TCPConn, dataChan chan<- *entities.SwitchMess
 			// 心跳包，什么都不做，继续等待下一个数据
 			continue
 		case 0x01:
-			// ClientInfo 数据
+			// DiscoveryMessage 数据
 
 			// 4 字节的数据长度
 			var dataLength uint32
@@ -85,15 +86,15 @@ func handleTCPConnection(conn *net.TCPConn, dataChan chan<- *entities.SwitchMess
 				return
 			}
 			// 反序列化数据
-			clientInfo := &switchdata.ClientInfo{}
-			if err := proto.Unmarshal(payload, clientInfo); err != nil {
+			DiscoveryMessage := &switchdata.DiscoveryMessage{}
+			if err := proto.Unmarshal(payload, DiscoveryMessage); err != nil {
 				// 反序列化失败，可能是数据格式错误，直接丢弃连接
 				return
 			}
 			// 发送数据到通道
 			dataChan <- &entities.SwitchMessage{
 				SourceAddr: conn.RemoteAddr().String(),
-				Payload:    clientInfo,
+				Payload:    DiscoveryMessage,
 			}
 		default:
 			// 未知的数据类型，也是直接丢弃连接
@@ -106,10 +107,11 @@ func handleTCPConnection(conn *net.TCPConn, dataChan chan<- *entities.SwitchMess
 // setupTCPServer 通过 TCP 接收来自其他节点的交换数据
 //
 // servPort: 监听的服务端口
+// tcpConnHub: 维护 TCP 连接的管理器
 // dataChan: 传递接收到的交换数据的通道
 // errChan: 传递错误信息的通道
 // sigCtx: 中断信号上下文，用于优雅关闭服务
-func setupTCPServer(servPort string, dataChan chan<- *entities.SwitchMessage, errChan chan<- error, sigCtx context.Context) {
+func setupTCPServer(servPort string, tcpConnHub *TCPConnectionHub, dataChan chan<- *entities.SwitchMessage, errChan chan<- error, sigCtx context.Context) {
 	for {
 		// 端口转整数
 		port, err := strconv.Atoi(servPort)
@@ -117,8 +119,6 @@ func setupTCPServer(servPort string, dataChan chan<- *entities.SwitchMessage, er
 			errChan <- fmt.Errorf("Invalid service port: %v", err)
 			return
 		}
-		// 控制最大连接数
-		connectionVolume := make(chan struct{}, constants.MaxTCPConnections)
 		exit, err := func() (bool, error) {
 			// 启动 TCP 服务
 			tcpListener, err := net.ListenTCP("tcp", &net.TCPAddr{
@@ -161,9 +161,20 @@ func setupTCPServer(servPort string, dataChan chan<- *entities.SwitchMessage, er
 					}
 					continue
 				}
-				connectionVolume <- struct{}{}
+				// 如果超过最大连接数，拒绝连接
+				if tcpConnHub.NumConnections() >= constants.MaxTCPConnections {
+					fmt.Printf("Maximum TCP connections reached (%d), rejecting new connection from %s\n", constants.MaxTCPConnections, conn.RemoteAddr().String())
+					conn.Close()
+					continue
+				}
+				// 添加连接到管理器
+				if err := tcpConnHub.AddConnection(conn); err != nil {
+					// 添加失败，说明连接已存在
+					conn.Close()
+					continue
+				}
 				// 处理连接
-				go handleTCPConnection(conn, dataChan, connectionVolume, sigCtx)
+				go handleTCPConnection(conn, dataChan, tcpConnHub, sigCtx)
 			}
 		}()
 		if exit {
@@ -180,9 +191,13 @@ func setupTCPServer(servPort string, dataChan chan<- *entities.SwitchMessage, er
 }
 
 // SetUpSwitchCore 设置并启动交换服务核心模块
-func SetUpSwitchCore(peerAddr string, peerPort string, servPort string, sigCtx context.Context, udpPacketChan <-chan entities.UDPPacketData, errChan chan<- error) {
+func SetUpSwitchCore(peerAddr string, peerPort string, servPort string, sigCtx context.Context, multicastChan <-chan *entities.SwitchMessage, errChan chan<- error) {
+	// 通过 TCP 传输的交换数据通道
 	switchDataChan := make(chan *entities.SwitchMessage, constants.SwitchDataReceiveChanSize)
+	// 维护 TCP 连接
+	var tcpConnHub *TCPConnectionHub = NewTCPConnectionHub()
 
-	// 启动 TCP 服务以接收交换数据
-	go setupTCPServer(servPort, switchDataChan, errChan, sigCtx)
+	// 启动 TCP 服务以接收另一端传输过来的交换数据
+	go setupTCPServer(servPort, tcpConnHub, switchDataChan, errChan, sigCtx)
+
 }

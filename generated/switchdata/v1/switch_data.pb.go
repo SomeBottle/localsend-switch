@@ -25,35 +25,38 @@ const (
 
 // 交换的 LocalSend 客户端信息
 // 参考: https://github.com/localsend/protocol?tab=readme-ov-file#31-multicast-udp-default
-type ClientInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SwitchId      string                 `protobuf:"bytes,1,opt,name=switch_id,json=switchId,proto3" json:"switch_id,omitempty"`          // 本交换信息的 ID
-	Alias         string                 `protobuf:"bytes,2,opt,name=alias,proto3" json:"alias,omitempty"`                                // 客户端别名
-	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`                            // 客户端版本
-	DeviceModel   string                 `protobuf:"bytes,4,opt,name=device_model,json=deviceModel,proto3" json:"device_model,omitempty"` // 设备型号
-	DeviceType    string                 `protobuf:"bytes,5,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"`    // 设备类型
-	Fingerprint   string                 `protobuf:"bytes,6,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`                    // 客户端指纹
-	Port          int32                  `protobuf:"varint,7,opt,name=port,proto3" json:"port,omitempty"`                                 // 监听端口
-	Protocol      string                 `protobuf:"bytes,8,opt,name=protocol,proto3" json:"protocol,omitempty"`                          // 协议
-	Download      bool                   `protobuf:"varint,9,opt,name=download,proto3" json:"download,omitempty"`                         // 是否支持下载
+type DiscoveryMessage struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	SwitchId     string                 `protobuf:"bytes,1,opt,name=switch_id,json=switchId,proto3" json:"switch_id,omitempty"`              // switch 客户端唯一标识符
+	DiscoverySeq uint64                 `protobuf:"varint,2,opt,name=discovery_seq,json=discoverySeq,proto3" json:"discovery_seq,omitempty"` // 发现包序列号
+	DiscoveryTtl uint32                 `protobuf:"varint,3,opt,name=discovery_ttl,json=discoveryTtl,proto3" json:"discovery_ttl,omitempty"` // 发现包存活时间（跳数）
+	// 以下为原发现信息
+	Alias         string `protobuf:"bytes,4,opt,name=alias,proto3" json:"alias,omitempty"`                                // 客户端别名
+	Version       string `protobuf:"bytes,5,opt,name=version,proto3" json:"version,omitempty"`                            // 客户端版本
+	DeviceModel   string `protobuf:"bytes,6,opt,name=device_model,json=deviceModel,proto3" json:"device_model,omitempty"` // 设备型号
+	DeviceType    string `protobuf:"bytes,7,opt,name=device_type,json=deviceType,proto3" json:"device_type,omitempty"`    // 设备类型
+	Fingerprint   string `protobuf:"bytes,8,opt,name=fingerprint,proto3" json:"fingerprint,omitempty"`                    // 客户端指纹
+	Port          int32  `protobuf:"varint,9,opt,name=port,proto3" json:"port,omitempty"`                                 // 监听端口
+	Protocol      string `protobuf:"bytes,10,opt,name=protocol,proto3" json:"protocol,omitempty"`                         // 协议
+	Download      bool   `protobuf:"varint,11,opt,name=download,proto3" json:"download,omitempty"`                        // 是否支持下载
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ClientInfo) Reset() {
-	*x = ClientInfo{}
+func (x *DiscoveryMessage) Reset() {
+	*x = DiscoveryMessage{}
 	mi := &file_switch_data_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ClientInfo) String() string {
+func (x *DiscoveryMessage) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ClientInfo) ProtoMessage() {}
+func (*DiscoveryMessage) ProtoMessage() {}
 
-func (x *ClientInfo) ProtoReflect() protoreflect.Message {
+func (x *DiscoveryMessage) ProtoReflect() protoreflect.Message {
 	mi := &file_switch_data_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -65,68 +68,82 @@ func (x *ClientInfo) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ClientInfo.ProtoReflect.Descriptor instead.
-func (*ClientInfo) Descriptor() ([]byte, []int) {
+// Deprecated: Use DiscoveryMessage.ProtoReflect.Descriptor instead.
+func (*DiscoveryMessage) Descriptor() ([]byte, []int) {
 	return file_switch_data_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *ClientInfo) GetSwitchId() string {
+func (x *DiscoveryMessage) GetSwitchId() string {
 	if x != nil {
 		return x.SwitchId
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetAlias() string {
+func (x *DiscoveryMessage) GetDiscoverySeq() uint64 {
+	if x != nil {
+		return x.DiscoverySeq
+	}
+	return 0
+}
+
+func (x *DiscoveryMessage) GetDiscoveryTtl() uint32 {
+	if x != nil {
+		return x.DiscoveryTtl
+	}
+	return 0
+}
+
+func (x *DiscoveryMessage) GetAlias() string {
 	if x != nil {
 		return x.Alias
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetVersion() string {
+func (x *DiscoveryMessage) GetVersion() string {
 	if x != nil {
 		return x.Version
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetDeviceModel() string {
+func (x *DiscoveryMessage) GetDeviceModel() string {
 	if x != nil {
 		return x.DeviceModel
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetDeviceType() string {
+func (x *DiscoveryMessage) GetDeviceType() string {
 	if x != nil {
 		return x.DeviceType
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetFingerprint() string {
+func (x *DiscoveryMessage) GetFingerprint() string {
 	if x != nil {
 		return x.Fingerprint
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetPort() int32 {
+func (x *DiscoveryMessage) GetPort() int32 {
 	if x != nil {
 		return x.Port
 	}
 	return 0
 }
 
-func (x *ClientInfo) GetProtocol() string {
+func (x *DiscoveryMessage) GetProtocol() string {
 	if x != nil {
 		return x.Protocol
 	}
 	return ""
 }
 
-func (x *ClientInfo) GetDownload() bool {
+func (x *DiscoveryMessage) GetDownload() bool {
 	if x != nil {
 		return x.Download
 	}
@@ -138,19 +155,21 @@ var File_switch_data_proto protoreflect.FileDescriptor
 const file_switch_data_proto_rawDesc = "" +
 	"\n" +
 	"\x11switch_data.proto\x12\n" +
-	"switchdata\"\x8b\x02\n" +
-	"\n" +
-	"ClientInfo\x12\x1b\n" +
-	"\tswitch_id\x18\x01 \x01(\tR\bswitchId\x12\x14\n" +
-	"\x05alias\x18\x02 \x01(\tR\x05alias\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\x12!\n" +
-	"\fdevice_model\x18\x04 \x01(\tR\vdeviceModel\x12\x1f\n" +
-	"\vdevice_type\x18\x05 \x01(\tR\n" +
+	"switchdata\"\xdb\x02\n" +
+	"\x10DiscoveryMessage\x12\x1b\n" +
+	"\tswitch_id\x18\x01 \x01(\tR\bswitchId\x12#\n" +
+	"\rdiscovery_seq\x18\x02 \x01(\x04R\fdiscoverySeq\x12#\n" +
+	"\rdiscovery_ttl\x18\x03 \x01(\rR\fdiscoveryTtl\x12\x14\n" +
+	"\x05alias\x18\x04 \x01(\tR\x05alias\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\tR\aversion\x12!\n" +
+	"\fdevice_model\x18\x06 \x01(\tR\vdeviceModel\x12\x1f\n" +
+	"\vdevice_type\x18\a \x01(\tR\n" +
 	"deviceType\x12 \n" +
-	"\vfingerprint\x18\x06 \x01(\tR\vfingerprint\x12\x12\n" +
-	"\x04port\x18\a \x01(\x05R\x04port\x12\x1a\n" +
-	"\bprotocol\x18\b \x01(\tR\bprotocol\x12\x1a\n" +
-	"\bdownload\x18\t \x01(\bR\bdownloadB\x1aZ\x18switchdata/v1;switchdatab\x06proto3"
+	"\vfingerprint\x18\b \x01(\tR\vfingerprint\x12\x12\n" +
+	"\x04port\x18\t \x01(\x05R\x04port\x12\x1a\n" +
+	"\bprotocol\x18\n" +
+	" \x01(\tR\bprotocol\x12\x1a\n" +
+	"\bdownload\x18\v \x01(\bR\bdownloadB\x1aZ\x18switchdata/v1;switchdatab\x06proto3"
 
 var (
 	file_switch_data_proto_rawDescOnce sync.Once
@@ -166,7 +185,7 @@ func file_switch_data_proto_rawDescGZIP() []byte {
 
 var file_switch_data_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_switch_data_proto_goTypes = []any{
-	(*ClientInfo)(nil), // 0: switchdata.ClientInfo
+	(*DiscoveryMessage)(nil), // 0: switchdata.DiscoveryMessage
 }
 var file_switch_data_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

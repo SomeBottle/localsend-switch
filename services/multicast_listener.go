@@ -2,18 +2,22 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/somebottle/localsend-switch/constants"
 	"github.com/somebottle/localsend-switch/entities"
+	switchdata "github.com/somebottle/localsend-switch/generated/switchdata/v1"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 )
 
 // ListenLocalSendMulticast 启动 LocalSend 组播消息监听
 //
+// selfIp: 本节点的 IP 地址，用来忽略不是自己的组播消息
+// nodeId: 本节点的唯一标识符
 // networkType: "udp4" 或 "udp6"
 // multicastAddr: 组播地址
 // multicastPort: 组播端口
@@ -21,7 +25,9 @@ import (
 // sigCtx: 中断信号上下文，用于优雅关闭监听
 // chanMsg: 传递接收到的组播消息的通道
 // errChan: 传递异常的通道，一旦传递，进程即将退出
-func ListenLocalSendMulticast(networkType string, multicastAddr string, multicastPort string, outboundInterface *net.Interface, sigCtx context.Context, chanMsg chan<- entities.UDPPacketData, errChan chan<- error) {
+func ListenLocalSendMulticast(selfIp net.IP, nodeId string, networkType string, multicastAddr string, multicastPort string, outboundInterface *net.Interface, sigCtx context.Context, chanMsg chan<- *entities.SwitchMessage, errChan chan<- error) {
+	// 维护一个序号，为每个发现消息分配唯一序号
+	var discoverySeq uint64
 	// for 循环保持连接
 	for {
 		exit, err := func() (bool, error) {
@@ -102,15 +108,29 @@ func ListenLocalSendMulticast(networkType string, multicastAddr string, multicas
 					// 否则重启服务
 					return false, err
 				}
-				clientIP := remoteAddr.(*net.UDPAddr).IP
-				clientPort := remoteAddr.(*net.UDPAddr).Port
-				// 发送数据到通道
-				data := entities.UDPPacketData{
-					SourceIP:   clientIP,
-					SourcePort: clientPort,
-					Data:       buf[:n],
+				// 解析数据
+				discoveryMsg := switchdata.DiscoveryMessage{}
+				if err := json.Unmarshal(buf[:n], &discoveryMsg); err != nil {
+					fmt.Printf("Warning: Failed to unmarshal discovery message from %s: %v\n", remoteAddr.String(), err)
+					continue
 				}
-				chanMsg <- data
+				clientIP := remoteAddr.(*net.UDPAddr).IP
+				// 过滤掉不是自己的消息，我需要把自己的发现包递交给其他人，如果其他人的发现包能组播到我这里，那不万事大吉了，没必要把他们的发现包再发回去
+				if !clientIP.Equal(selfIp) {
+					// 不是自己组播的消息，直接忽略
+					continue
+				}
+				discoveryMsg.SwitchId = nodeId
+				discoveryMsg.DiscoverySeq = discoverySeq
+				discoveryMsg.DiscoveryTtl = constants.MaxDiscoveryMessageTTL
+				// 序号递增
+				discoverySeq++
+				// 包装成 SwitchMessage
+				switchMsg := &entities.SwitchMessage{
+					SourceAddr: remoteAddr.String(),
+					Payload:    &discoveryMsg,
+				}
+				chanMsg <- switchMsg
 			}
 		}()
 		if exit {
