@@ -203,6 +203,7 @@ func SetUpSwitchCore(peerAddr string, peerPort string, servPort string, sigCtx c
 	var localClientLounge *LocalClientLounge = NewLocalClientLounge()
 	// 清理
 	defer func(){
+		localClientLounge.Close()
 		switchLounge.Close()
 		tcpConnHub.Close()
 	}()
