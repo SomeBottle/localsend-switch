@@ -9,4 +9,6 @@ const (
 	SWITCH_ID_CACHE_MAX_ENTRIES = 65536
 	// 交换数据等候区大小，即本地停留的发现信息最大条目数，多余的会被丢弃
 	SWITCH_LOUNGE_SIZE = 255 * 255
+	// 本地客户端信息缓存时间，单位为秒
+	LOCAL_CLIENT_INFO_CACHE_LIFETIME = 60
 )

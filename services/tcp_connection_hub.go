@@ -39,3 +39,10 @@ func (hub *TCPConnectionHub) RemoveConnection(conn *net.TCPConn) {
 func (hub *TCPConnectionHub) NumConnections() int {
 	return len(hub.conns)
 }
+
+// Close 关闭所有管理的 TCP 连接
+func (hub *TCPConnectionHub) Close() {
+	for _, conn := range hub.conns {
+		conn.Close()
+	}
+}

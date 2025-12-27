@@ -4,7 +4,9 @@ package utils
 
 import (
 	"crypto/rand"
+	"errors"
 	"strconv"
+
 	"github.com/somebottle/localsend-switch/entities"
 )
 
@@ -24,4 +26,23 @@ func GenerateRandomSwitchID() string {
 func GetDiscoveryId(switchMsg *entities.SwitchMessage) string {
 	var discoveryId string = switchMsg.Payload.SwitchId + "_" + strconv.FormatUint(switchMsg.Payload.DiscoverySeq, 10)
 	return discoveryId
+}
+
+// SwitchMessageToLocalSendClientInfo 将交换消息转换为 LocalSend 客户端信息实体
+func SwitchMessageToLocalSendClientInfo(switchMsg *entities.SwitchMessage) (*entities.LocalSendClientInfo, error) {
+	if switchMsg.Payload == nil {
+		return nil, errors.New("Switch message does not contain client info")
+	}
+	discoveryMsg := switchMsg.Payload
+	clientInfo := &entities.LocalSendClientInfo{
+		Alias:       discoveryMsg.Alias,
+		Version:     discoveryMsg.Version,
+		DeviceModel: discoveryMsg.DeviceModel,
+		DeviceType:  discoveryMsg.DeviceType,
+		Fingerprint: discoveryMsg.Fingerprint,
+		Port:        uint16(discoveryMsg.Port),
+		Protocol:    discoveryMsg.Protocol,
+		Download:    discoveryMsg.Download,
+	}
+	return clientInfo, nil
 }

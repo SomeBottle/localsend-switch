@@ -17,6 +17,8 @@ import (
 
 // ListenLocalSendMulticast 启动 LocalSend 组播消息监听
 //
+// 注：只接收本地客户端发出的组播包，如果是别的主机发出的组播包会被忽略
+//
 // nodeId: 本节点的唯一标识符
 // networkType: "udp4" 或 "udp6"
 // multicastAddr: 组播地址

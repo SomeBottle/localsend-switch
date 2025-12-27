@@ -19,7 +19,7 @@ type TTLHeapItem struct {
 	// 发现信息唯一 ID
 	id string
 	// 过期时间
-	timestamp time.Time
+	expireAt time.Time
 }
 
 // TTL 堆 (小根堆，越早过期的在前面)
@@ -32,7 +32,7 @@ func (th *TTLHeap) Len() int {
 }
 
 func (th *TTLHeap) Less(i, j int) bool {
-	return (*th)[i].timestamp.Before((*th)[j].timestamp)
+	return (*th)[i].expireAt.Before((*th)[j].expireAt)
 }
 
 func (th *TTLHeap) Swap(i, j int) {
@@ -67,14 +67,14 @@ type SwitchLounge struct {
 }
 
 // NewSwitchLounge 创建一个新的交换信息等候室
-func NewSwitchLounge(bufferSize int) *SwitchLounge {
+func NewSwitchLounge() *SwitchLounge {
 	ttlHeap := &TTLHeap{}
 	heap.Init(ttlHeap)
 	switchLounge := SwitchLounge{
 		closeSignal: make(chan struct{}),
 		relayedIds:  make(map[string]bool),
 		ttlHeap:     ttlHeap,
-		lounge:      make(chan *entities.SwitchMessage, bufferSize),
+		lounge:      make(chan *entities.SwitchMessage, constants.SWITCH_LOUNGE_SIZE),
 	}
 	// 过期 ID 清理协程
 	go func() {
@@ -95,7 +95,7 @@ func NewSwitchLounge(bufferSize int) *SwitchLounge {
 					}
 					// 把过期的 ID 都清理掉，直至堆顶未过期
 					item := (*ttlHeap)[0]
-					if item.timestamp.After(now) {
+					if item.expireAt.After(now) {
 						break
 					}
 					heap.Pop(ttlHeap)
@@ -138,7 +138,7 @@ func (sl *SwitchLounge) Write(msg *entities.SwitchMessage) error {
 		// 加入堆中
 		heap.Push(sl.ttlHeap, &TTLHeapItem{
 			id:        discoveryId,
-			timestamp: time.Now().Add(constants.SWITCH_ID_CACHE_LIFETIME * time.Second),
+			expireAt: time.Now().Add(constants.SWITCH_ID_CACHE_LIFETIME * time.Second),
 		})
 	default:
 		// 等候通道已满，忽略写入
