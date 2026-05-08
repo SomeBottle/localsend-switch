@@ -94,10 +94,10 @@ In practice, **every Switch node has this forwarding capability**. You can even 
 | `--ls-port` | `LOCALSEND_SERVER_PORT` | LocalSend HTTP server (and multicast) port. | `53317` |
 | `--peer-addr` | `LOCALSEND_SWITCH_PEER_ADDR` | IP Address of peer switch node. |  |
 | `--peer-connect-max-retries` | `LOCALSEND_SWITCH_PEER_CONNECT_MAX_RETRIES` | Max retries to connect to peer switch before giving up. <br><br> * Set to a **negative** number for unlimited retries. | `10` |
-| `--peer-port` | `LOCALSEND_SWITCH_PEER_PORT` | Port of peer switch node. | (Default to `--serv-port`) |
+| `--peer-port` | `LOCALSEND_SWITCH_PEER_PORT` | Port of peer switch node. | (Defaults to `--serv-port`) |
 | `--secret-key` | `LOCALSEND_SWITCH_SECRET_KEY` | Secret key for secure communication with peer switch nodes. |  |
 | `--serv-port` | `LOCALSEND_SWITCH_SERV_PORT` | Port to listen for incoming TCP connections from peer switch nodes. |  |
-| `--work-dir` | `LOCALSEND_SWITCH_WORK_DIR` | Working directory of the process. | (Default to the [executable's directory](#working-directory)) |
+| `--work-dir` | `LOCALSEND_SWITCH_WORK_DIR` | Working directory of the process. | (Defaults to the [executable's directory](#working-directory)) |
 
 ## Configure via Environment Variables
 
@@ -210,7 +210,7 @@ The working directory will default to the **executable's directory**.
 
 Here we construct a simple logical star topology. Suppose there are six hosts on the local area network: A, B, C, D, E, and F. Among them, D acts as the server and has a static IP address `192.168.232.47`. The others—A, B, C, E, and F—are PC computers running the LocalSend client.
 
-* Run LocalSend Switch on D, listening on port `7761`, as the central switching node, and enable end-side encryption:
+* Run LocalSend Switch on D, listening on port `7761`, as the central switching node, and enable end-to-end encryption:
 
     ```bash
     ./localsend-switch-linux-amd64 --serv-port=7761 --secret-key=el_psy_kongroo
@@ -227,7 +227,7 @@ With this setup, the LocalSend clients on A, B, C, E, and F will be able to disc
 
 ### Autostart on Login
 
-The LocalSend client can be configured to start automatically on boot (after login). LocalSend Switch also supports autostart option, so you don't need to manually start LocalSend Switch every time you use LocalSend:  
+The LocalSend client can be configured to start automatically on boot (after login). LocalSend Switch also supports autostart option, so you don't need to manually start LocalSend Switch every time you boot up:  
 
 ```bash
 # Windows (a command-line window will pop up on startup)
@@ -266,7 +266,7 @@ docker run -d --name localsend-switch \
     go generate ./...
     ```
 
-    It has been already generated in the repository, so you can skip this step.  
+    It has already been generated in the repository, so you can skip this step.  
 
 1. Install `protoc` and `protoc-gen-go`, refer to [the official guide](https://protobuf.dev/getting-started/gotutorial/#compiling-protocol-buffers) for installation instructions.  
 
